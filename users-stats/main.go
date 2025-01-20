@@ -33,7 +33,7 @@ type SalaryStats struct {
 }
 
 type User struct {
-	Id       int     `dynamodbav:"title"`
+	Id       int     `dynamodbav:"id"`
 	Name     string  `dynamodbav:"name"`
 	Position string  `dynamodbav:"position"`
 	Salary   float64 `dynamodbav:"salary"`
