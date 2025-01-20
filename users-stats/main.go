@@ -53,7 +53,7 @@ func HandleRequest(ctx context.Context) (SalaryStats, error) {
 	var users []User
 	err = attributevalue.UnmarshalListOfMaps(result.Items, &users)
 	if err != nil {
-		log.Printf("Error unmarshaling users: %v", err)
+		log.Fatalf("Error unmarshaling users: %v", err)
 		return SalaryStats{}, err
 	}
 
