@@ -30,33 +30,54 @@ func init() {
 	s3Client = s3.NewFromConfig(cfg)
 }
 
-type Params struct {
-	BucketName string `json:"bucketName"`
-	ObjectKey  string `json:"objectKey"`
+type Params2 struct {
+	Records []struct {
+		S3 struct {
+			Bucket struct {
+				Name string `json:"name"`
+			} `json:"bucket"`
+			Object struct {
+				Key string `json:"key"`
+			} `json:"object"`
+		} `json:"s3"`
+	} `json:"Records"`
 }
 
-func handler(ctx context.Context, event Params) (float64, error) {
-	log.Printf("processing starting with params: bucket name: %s, file name: %s", event.BucketName, event.ObjectKey)
+func handler(ctx context.Context, event Params2) (float64, error) {
+	log.Printf("triggered by event: %v\n", event)
 
-	result, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(event.BucketName),
-		Key:    aws.String(event.ObjectKey),
+	bucket := event.Records[0].S3.Bucket.Name
+	object := event.Records[0].S3.Object.Key
+
+	log.Printf("processing starting with params: bucket name: %s, file name: %s",
+		bucket,
+		object)
+
+	obj, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(object),
 	})
 
 	if err != nil {
 		var noKey *types.NoSuchKey
 		if errors.As(err, &noKey) {
-			log.Printf("can't get object %s from bucket %s. no such key exists.\n", event.ObjectKey, event.BucketName)
+			log.Printf("can't get object %s from bucket %s. no such key exists.\n", object, bucket)
 			err = noKey
 		} else {
-			log.Printf("couldn't get object %v:%v: %v\n", event.BucketName, event.ObjectKey, err)
+			log.Printf("couldn't get object %v:%v: %v\n", bucket, object, err)
 		}
 		return 0, err
 	}
 
-	defer result.Body.Close()
+	defer obj.Body.Close()
 
-	return CalculateGPAAverage(result.Body)
+	result, err := CalculateGPAAverage(obj.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	log.Printf("average GPA: %f\n", result)
+	return result, nil
 }
 
 func main() {

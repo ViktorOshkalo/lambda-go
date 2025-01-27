@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 var (
@@ -41,17 +42,38 @@ type User struct {
 }
 
 func HandleRequest(ctx context.Context) (SalaryStats, error) {
-	// Scan the table to get all items
-	result, err := svc.Scan(context.TODO(), &dynamodb.ScanInput{
-		TableName: aws.String("Users"),
-	})
-	if err != nil {
-		log.Fatalf("failed to scan table, %v", err)
-		return SalaryStats{}, err
+
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String("Users"),
+		IndexName:              aws.String("salary-index"),
+		KeyConditionExpression: aws.String("#key = :value"),
+		ExpressionAttributeNames: map[string]string{
+			"#key": "id",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":value": &types.AttributeValueMemberS{Value: "PartitionKeyValue"},
+		},
+		ScanIndexForward: aws.Bool(true), // true for MIN, false for MAX
+		Limit:            aws.Int32(1),
 	}
 
+	// Execute query
+	output, err := svc.Query(context.TODO(), input)
+	if err != nil {
+		log.Fatalf("Query failed: %v", err)
+	}
+
+	// // Scan the table to get all items
+	// result, err := svc.Scan(context.TODO(), &dynamodb.ScanInput{
+	// 	TableName: aws.String("Users"),
+	// })
+	// if err != nil {
+	// 	log.Fatalf("failed to scan table, %v", err)
+	// 	return SalaryStats{}, err
+	// }
+
 	var users []User
-	err = attributevalue.UnmarshalListOfMaps(result.Items, &users)
+	err = attributevalue.UnmarshalListOfMaps(output.Items, &users)
 	if err != nil {
 		log.Fatalf("Error unmarshaling users: %v", err)
 		return SalaryStats{}, err
